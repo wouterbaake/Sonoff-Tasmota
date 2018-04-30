@@ -1,7 +1,38 @@
-/* 5.12.0l
+/* 5.12.0o
+ * Fix Energy Today and Yesterday overflow (#2543)
+ * Fix NTP sync to Thu Jan 01 08:00:10 1970 results in uptime 17651+ days (core2.4.1/sdk2.2.1)
+ *
+ * 5.12.0n
+ * Change ESP8266 Analog JSON message from {"Analog0:123"} to {"ANALOG":{"A0:123"}} to accomodate rules (#2560)
+ * Change Counter JSON message from {"Counter1":0,"Counter3":0} to {"COUNTER":{"C1":0,"C3":0}} to accomodate rules
+ * Change ADS1115 JSON message from {"ADS1115":{"Analog0":123,"Analog1":123}} to {"ADS1115":{"A0":123,"A1":123}}
+ * Add ANALOG#A0div10 trigger to rules to be used in rule like on analog#a0div10 do publish cmnd/ailight/dimmer %value% endon
+ *
+ * 5.12.0m
+ * Reinit timers to accomodate random window (#2447)
+ * Remove sonoff-xxl
+ * Disable sleep when using Esp/Arduino core 2.4.1 (#2559)
+ * Add sonoff-classic, sonoff-allsensors and sonoff-knx
+ * Add some coloring to important web buttons
+ * Add rule variables and teleperiod trigger to accomodate user HA messages
+ * Add define MQTT_TELE_RETAIN compile option default set to 0 (#1071)
+ * Add user selectable defines for Sunrise/set Dawn option (#2378)
+ * Add random window to timers (#2447)
+ * Add optional KNX IP Protocol Support (#2402)
+ * Add Greek language file (#2491)
+ * Add Bulgarian language file
+ * Add support for sensor HC-SR04 ultrasonic (#113, #1964, #2444)
+ * Add support for Sonoff Pow R2 (#2340)
+ * Add GPIO_User to GPIO02 for all Sonoff T1 (#2524)
+ * Fix compile error when using ESP/Arduino library v2.3.0 by reverting KNX async UDP library to default UDP library (#2488, #2492, #2493)
+ * Fix configuration filename truncation when it contains spaces (#2484, #2490)
+ *
+ * 5.12.0l
  * Release rules up to 511 characters
  * Prepare for feature release - call on translators to update their language files
  * Add timer sunrise and sunset offset (#2378)
+ * Fix negative Latitude and Longitude value entry (#2461)
+ * Fix sunrise and sunset calculation (#2461)
  *
  * 5.12.0k
  * Prepare for simple rules of up to 255 characters by enlarging Settings area to now 2048 bytes
@@ -98,7 +129,7 @@
  * Add support for sensor SHTC3 (#1967)
  *
  * 5.12.0a
- * Change platformio option sonoff-ds18x20 to sonoff-xxl enabling ds18x20 and all other sensors in one image
+ * Change platformio option sonoff-ds18x20 to sonoff-allsensors enabling ds18x20 and all other sensors in one image
  * Fix providing web page configuratin option for Friendly Name when no device (relay or light) is configured (#1850)
  * Change default parameters in user_config.h to undefined for easy installation (#1851)
  * Change max user configurable hold time from 10 to 25 seconds (#1851)

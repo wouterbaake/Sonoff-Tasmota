@@ -62,8 +62,11 @@
 \*********************************************************************************************/
 
 #define MAX_RULE_TIMERS        8
+#define RULES_MAX_VARS         5
 
+#ifndef ULONG_MAX
 #define ULONG_MAX              0xffffffffUL
+#endif
 
 #define D_CMND_RULE "Rule"
 #define D_CMND_RULETIMER "RuleTimer"
@@ -81,6 +84,7 @@ long rules_power = -1;
 
 uint32_t rules_triggers = 0;
 uint8_t rules_trigger_count = 0;
+uint8_t rules_teleperiod = 0;
 
 /*******************************************************************************************/
 
@@ -141,9 +145,15 @@ bool RulesRuleMatch(String &event, String &rule)
 
   // Step1: Analyse rule
   int pos = rule.indexOf('#');
-  if (pos == -1) return false;                         // No # sign in rule
+  if (pos == -1) { return false; }                     // No # sign in rule
 
   String rule_task = rule.substring(0, pos);           // "INA219" or "SYSTEM"
+  if (rules_teleperiod) {
+    int ppos = rule_task.indexOf("TELE-");             // "TELE-INA219" or "INA219"
+    if (ppos == -1) { return false; }                  // No pre-amble in rule
+    rule_task = rule.substring(5, pos);                // "INA219" or "SYSTEM"
+  }
+
   String rule_name = rule.substring(pos +1);           // "CURRENT>0.100" or "BOOT"
 
   char compare = ' ';
@@ -173,7 +183,7 @@ bool RulesRuleMatch(String &event, String &rule)
   // Step2: Search rule_task and rule_name
   StaticJsonBuffer<400> jsonBuf;
   JsonObject &root = jsonBuf.parseObject(event);
-  if (!root.success()) return false;                   // No valid JSON data
+  if (!root.success()) { return false; }               // No valid JSON data
 
   double value = 0;
   const char* str_value = root[rule_task][rule_name];
@@ -182,7 +192,7 @@ bool RulesRuleMatch(String &event, String &rule)
 //    rule_task.c_str(), rule_name.c_str(), tmp_value.c_str(), rules_trigger_count, bitRead(rules_triggers, rules_trigger_count), event.c_str(), (str_value) ? str_value : "none");
 //  AddLog(LOG_LEVEL_DEBUG);
 
-  if (!root[rule_task][rule_name].success()) return false;
+  if (!root[rule_task][rule_name].success()) { return false; }
   // No value but rule_name is ok
 
   rules_event_value = str_value;                       // Prepare %value%
@@ -226,9 +236,11 @@ bool RulesRuleMatch(String &event, String &rule)
 bool RulesProcess()
 {
   bool serviced = false;
+  char vars[RULES_MAX_VARS][10] = { 0 };
+  char stemp[10];
 
-  if (!Settings.flag.rules_enabled) return serviced;   // Not enabled
-  if (!strlen(Settings.rules)) return serviced;        // No rules
+  if (!Settings.flag.rules_enabled) { return serviced; }  // Not enabled
+  if (!strlen(Settings.rules)) { return serviced; }       // No rules
 
   String event_saved = mqtt_data;
   event_saved.toUpperCase();
@@ -237,21 +249,21 @@ bool RulesProcess()
   rules_trigger_count = 0;
   int plen = 0;
   while (true) {
-    rules = rules.substring(plen);                     // Select relative to last rule
+    rules = rules.substring(plen);                        // Select relative to last rule
     rules.trim();
-    if (!rules.length()) return serviced;              // No more rules
+    if (!rules.length()) { return serviced; }             // No more rules
 
     String rule = rules;
-    rule.toUpperCase();                                // "ON INA219#CURRENT>0.100 DO BACKLOG DIMMER 10;COLOR 100000 ENDON"
-    if (!rule.startsWith("ON ")) return serviced;      // Bad syntax - Nothing to start on
+    rule.toUpperCase();                                   // "ON INA219#CURRENT>0.100 DO BACKLOG DIMMER 10;COLOR 100000 ENDON"
+    if (!rule.startsWith("ON ")) { return serviced; }     // Bad syntax - Nothing to start on
 
     int pevt = rule.indexOf(" DO ");
-    if (pevt == -1) return serviced;                   // Bad syntax - Nothing to do
-    String event_trigger = rule.substring(3, pevt);    // "INA219#CURRENT>0.100"
+    if (pevt == -1) { return serviced; }                  // Bad syntax - Nothing to do
+    String event_trigger = rule.substring(3, pevt);       // "INA219#CURRENT>0.100"
 
     plen = rule.indexOf(" ENDON");
-    if (plen == -1) return serviced;                   // Bad syntax - No endon
-    String commands = rules.substring(pevt +4, plen);  // "Backlog Dimmer 10;Color 100000"
+    if (plen == -1) { return serviced; }                  // Bad syntax - No endon
+    String commands = rules.substring(pevt +4, plen);     // "Backlog Dimmer 10;Color 100000"
     plen += 6;
 
 //    snprintf_P(log_data, sizeof(log_data), PSTR("RUL: Trigger |%s|, Commands |%s|"), event_trigger.c_str(), commands.c_str());
@@ -260,17 +272,32 @@ bool RulesProcess()
     rules_event_value = "";
     String event = event_saved;
     if (RulesRuleMatch(event, event_trigger)) {
-      commands.replace(F("%value%"), rules_event_value);
-      char command[commands.length() +1];
-      snprintf(command, sizeof(command), commands.c_str());
+      commands.trim();
+      String ucommand = commands;
+      ucommand.toUpperCase();
+      if (ucommand.startsWith("VAR")) {
+        uint8_t idx = ucommand.charAt(3) - '1';
+//        idx -= '1';
+        if ((idx >= 0) && (idx < RULES_MAX_VARS)) { snprintf(vars[idx], sizeof(vars[idx]), rules_event_value.c_str()); }
+      } else {
+        commands.replace(F("%value%"), rules_event_value);
+        for (byte i = 0; i < RULES_MAX_VARS; i++) {
+          if (strlen(vars[i])) {
+            snprintf_P(stemp, sizeof(stemp), PSTR("%%var%d%%"), i +1);
+            commands.replace(stemp, vars[i]);
+          }
+        }
+        char command[commands.length() +1];
+        snprintf(command, sizeof(command), commands.c_str());
 
-      snprintf_P(log_data, sizeof(log_data), PSTR("RUL: %s performs \"%s\""), event_trigger.c_str(), command);
-      AddLog(LOG_LEVEL_INFO);
+        snprintf_P(log_data, sizeof(log_data), PSTR("RUL: %s performs \"%s\""), event_trigger.c_str(), command);
+        AddLog(LOG_LEVEL_INFO);
 
-//      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_SVALUE, D_CMND_RULE, D_JSON_INITIATED);
-//      MqttPublishPrefixTopic_P(RESULT_OR_STAT, PSTR(D_CMND_RULE));
+//        snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_SVALUE, D_CMND_RULE, D_JSON_INITIATED);
+//        MqttPublishPrefixTopic_P(RESULT_OR_STAT, PSTR(D_CMND_RULE));
 
-      ExecuteCommand(command);
+        ExecuteCommand(command);
+      }
       serviced = true;
     }
     rules_trigger_count++;
@@ -286,6 +313,7 @@ void RulesInit()
     Settings.flag.rules_enabled = 0;
     Settings.flag.rules_once = 0;
   }
+  rules_teleperiod = 0;
 }
 
 void RulesSetPower()
@@ -342,6 +370,13 @@ void RulesEverySecond()
   }
 }
 
+void RulesTeleperiod()
+{
+  rules_teleperiod = 1;
+  RulesProcess();
+  rules_teleperiod = 0;
+}
+
 boolean RulesCommand()
 {
   char command[CMDSZ];
@@ -375,7 +410,7 @@ boolean RulesCommand()
         String uc_command = command;
         uc_command += " ";    // Distuingish from RuleTimer
         uc_command.toUpperCase();
-        if (!uc_data.indexOf(uc_command)) strlcpy(Settings.rules, XdrvMailbox.data, sizeof(Settings.rules));
+        if (!uc_data.indexOf(uc_command)) { strlcpy(Settings.rules, XdrvMailbox.data, sizeof(Settings.rules)); }
 */
         strlcpy(Settings.rules, XdrvMailbox.data, sizeof(Settings.rules));
       }
