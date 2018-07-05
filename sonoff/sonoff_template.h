@@ -93,6 +93,8 @@ enum UserSelectablePins {
   GPIO_SBR_RX,         // Serial Bridge Serial interface
   GPIO_SR04_TRIG,      // SR04 Trigger pin
   GPIO_SR04_ECHO,      // SR04 Echo pin
+  GPIO_SDM120_TX,      // SDM120 Serial interface
+  GPIO_SDM120_RX,      // SDM120 Serial interface
   GPIO_SENSOR_END };
 
 // Programmer selectable GPIO functionality offset by user selectable GPIOs
@@ -136,7 +138,8 @@ const char kSensorNames[] PROGMEM =
   D_SENSOR_SPI_CS "|" D_SENSOR_SPI_DC "|" D_SENSOR_BACKLIGHT "|"
   D_SENSOR_PMS5003 "|" D_SENSOR_SDS0X1 "|"
   D_SENSOR_SBR_TX "|" D_SENSOR_SBR_RX "|"
-  D_SENSOR_SR04_TRIG "|" D_SENSOR_SR04_ECHO;
+  D_SENSOR_SR04_TRIG "|" D_SENSOR_SR04_ECHO "|"
+  D_SENSOR_SDM120_TX "|" D_SENSOR_SDM120_RX;
 
 /********************************************************************************************/
 
@@ -501,8 +504,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
   { "H801",            // Lixada H801 Wifi (ESP8266)
      GPIO_USER,        // GPIO00 E-FW Button
      GPIO_LED1,        // GPIO01 Green LED
-     GPIO_USER,         // GPIO02 RX - Pin next to TX on the PCB
-     GPIO_USER,         // GPIO03 TX - Pin next to GND on the PCB
+     GPIO_TXD,         // GPIO02 RX - Pin next to TX on the PCB
+     GPIO_RXD,         // GPIO03 TX - Pin next to GND on the PCB
      GPIO_PWM5,        // GPIO04 W2 - PWM5
      GPIO_LED2_INV,    // GPIO05 Red LED
      0, 0, 0, 0, 0, 0, // Flash connection
